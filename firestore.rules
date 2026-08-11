@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// ---------------------------------------------------------------------------
+// DEVELOPMENT RULES — open access so the app + emulator work out of the box.
+// DO NOT ship these to production.
+// ---------------------------------------------------------------------------
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /items/{itemId} {
+      allow read, write: if true;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCTION EXAMPLE (uncomment + adapt once Firebase Auth is wired up).
+// Restricts access to signed-in staff on the department's Workspace domain,
+// and validates the document shape on write.
+// ---------------------------------------------------------------------------
+//
+// service cloud.firestore {
+//   match /databases/{database}/documents {
+//     function isStaff() {
+//       return request.auth != null
+//         && request.auth.token.email.matches('.*@g[.]swu[.]ac[.]th$');
+//     }
+//     function validItem() {
+//       let d = request.resource.data;
+//       return d.name is string
+//         && d.category in ['lab_equipment','reagents_chemicals','it_computing','office_supplies']
+//         && d.status in ['available','borrowed','maintenance','retired']
+//         && d.quantity is number && d.minQuantity is number;
+//     }
+//     match /items/{itemId} {
+//       allow read: if isStaff();
+//       allow create, update: if isStaff() && validItem();
+//       allow delete: if isStaff();
+//     }
+//   }
+// }

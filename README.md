@@ -1,16 +1,92 @@
-# Flow Cytometry Simulator
+# Department Inventory & Equipment Management System
 
-เครื่องจำลองผล flow cytometry แบบ interactive (single-file HTML) สำหรับการเรียนการสอน PBMC immunophenotyping
+A real-time inventory and equipment management system for a university academic
+department, built with **Next.js (TypeScript)**, **Tailwind CSS**, and
+**Google Firebase (Firestore)** for live data synchronization.
 
-เปิดใช้งาน: เปิดไฟล์ `index.html` ในเบราว์เซอร์ได้ทันที ไม่ต้องติดตั้งอะไร
+> This project lives on the `claude/university-inventory-system-*` branch. The
+> repository's default branch hosts an unrelated project (Flow Cytometry
+> Simulator); the leftover `index.html` at the repo root belongs to that
+> project and is not used by this app.
 
-## ความสามารถ
-- **Dot plot + density coloring** เลือกแกน X/Y ได้จากทุกช่องสัญญาณ (FSC, SSC, CD3, CD4, CD8, CD19, CD56, CD14)
-- **Interactive gating** ลากเมาส์วาด gate บน Plot A แล้ว Plot B/C จะแสดงเฉพาะเซลล์ใน gate
-- **Quadrant analysis** ลาก crosshair แบ่ง 4 quadrant พร้อมคำนวณ % อัตโนมัติ (เช่น CD4 x CD8)
-- **Histogram** ของ marker ที่เลือก
-- ปรับสัดส่วนประชากรเซลล์ (lymphocyte/monocyte/granulocyte/debris), subset (T/B/NK), CD4:CD8 ratio, instrument noise และจำลอง spillover
-- Preset: ปกติ / CD4 ต่ำ
-- รองรับธีมสว่าง-มืด
+## Features (planned & in progress)
 
-> หมายเหตุ: ข้อมูลทั้งหมดเป็นการจำลองเชิงการศึกษา ไม่ใช่ผลตรวจจริง
+- **Real-time dashboard** — total inventory, low-stock alerts, and equipment
+  status distribution, with bar charts (category breakdown) and donut charts
+  (status summary) that update live across all clients. _(scaffolded; charts
+  land next milestone)_
+- **Inventory CRUD** — create, read, update, delete assets. _(read view live;
+  full CRUD next milestone)_
+- **Categorization** — Lab Equipment, Reagents/Chemicals (with expiry
+  tracking), IT/Computing Devices, General Office Supplies.
+- **Status tracking** — instant status updates for durable goods (ครุภัณฑ์):
+  Available, In-Use/Borrowed, Maintenance/Broken, Retired.
+- **Reporting export** — CSV / Google Sheets export for faculty reporting.
+  _(planned)_
+
+## Tech stack
+
+| Layer         | Choice                                   |
+| ------------- | ---------------------------------------- |
+| Framework     | Next.js 14 (App Router, TypeScript)      |
+| Styling / UI  | Tailwind CSS, lucide-react icons         |
+| Data / realtime | Firebase Firestore (Web SDK, `onSnapshot`) |
+| Charts        | Recharts                                 |
+
+## Getting started
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure Firebase
+cp .env.example .env.local
+#    …then fill in your Firebase web app credentials.
+
+# 3. Run the dev server
+npm run dev            # http://localhost:3000
+```
+
+### Using the Firestore emulator (no cloud project needed)
+
+```bash
+# In .env.local set:
+#   NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true
+firebase emulators:start --only firestore
+npm run seed          # load sample data
+npm run dev
+```
+
+## Project structure
+
+```
+src/
+  app/
+    layout.tsx           # App shell + sidebar
+    page.tsx             # Redirects to /dashboard
+    dashboard/page.tsx   # Live stats (charts coming next)
+    inventory/page.tsx   # Item table (read view)
+  components/            # Sidebar, StatCard, ConfigNotice, …
+  hooks/useItems.ts      # Real-time Firestore subscription hook
+  lib/
+    firebase.ts          # Firebase app + Firestore init (+ emulator)
+    types.ts             # Domain model (mirrors the Firestore schema)
+    constants.ts         # Categories, statuses, collection names
+    items.ts             # CRUD, live listener, stats aggregation
+    utils.ts             # Formatting + class-name helpers
+scripts/seed.ts          # Sample-data seeder
+docs/FIRESTORE_SCHEMA.md # Data model reference
+firestore.rules          # Security rules (dev-open; prod example inside)
+```
+
+## Data model
+
+See [`docs/FIRESTORE_SCHEMA.md`](docs/FIRESTORE_SCHEMA.md) for the full schema.
+In short: a single `items` collection, discriminated by `category`, read via one
+real-time snapshot listener that powers the whole dashboard.
+
+## Security
+
+`firestore.rules` ships **development-open** so the app runs immediately. Before
+any real deployment, switch to the authenticated production rules example
+included (commented) in that file.
