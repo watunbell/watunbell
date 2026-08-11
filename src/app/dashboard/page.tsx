@@ -4,6 +4,9 @@ import { Boxes, PackageX, CalendarClock, Layers } from "lucide-react";
 import { useItems } from "@/hooks/useItems";
 import { StatCard } from "@/components/StatCard";
 import { ConfigNotice } from "@/components/ConfigNotice";
+import { ChartCard } from "@/components/charts/ChartCard";
+import { CategoryBarChart } from "@/components/charts/CategoryBarChart";
+import { StatusDonutChart } from "@/components/charts/StatusDonutChart";
 
 export default function DashboardPage() {
   const { stats, loading, error, configured } = useItems();
@@ -57,13 +60,33 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="grid min-h-[280px] place-items-center rounded-xl border border-dashed border-gray-300 bg-white text-sm text-gray-400">
-          Category breakdown (bar chart) — coming next
-        </div>
-        <div className="grid min-h-[280px] place-items-center rounded-xl border border-dashed border-gray-300 bg-white text-sm text-gray-400">
-          Status distribution (donut chart) — coming next
-        </div>
+        <ChartCard
+          title="Items by Category"
+          subtitle="Distinct items per asset category"
+        >
+          {loading ? (
+            <ChartSkeleton />
+          ) : (
+            <CategoryBarChart byCategory={stats.byCategory} />
+          )}
+        </ChartCard>
+        <ChartCard
+          title="Status Distribution"
+          subtitle="Equipment status across all items"
+        >
+          {loading ? (
+            <ChartSkeleton />
+          ) : (
+            <StatusDonutChart byStatus={stats.byStatus} />
+          )}
+        </ChartCard>
       </section>
     </div>
+  );
+}
+
+function ChartSkeleton() {
+  return (
+    <div className="h-[280px] animate-pulse rounded-lg bg-gray-100" />
   );
 }
