@@ -1,15 +1,24 @@
 "use client";
 
-import { Boxes, PackageX, CalendarClock, Layers } from "lucide-react";
+import { Boxes, PackageX, CalendarClock, HandHelping } from "lucide-react";
 import { useItems } from "@/hooks/useItems";
+import { useLoans } from "@/hooks/useLoans";
 import { StatCard } from "@/components/StatCard";
 import { ConfigNotice } from "@/components/ConfigNotice";
 import { ChartCard } from "@/components/charts/ChartCard";
 import { CategoryBarChart } from "@/components/charts/CategoryBarChart";
 import { StatusDonutChart } from "@/components/charts/StatusDonutChart";
+import { daysUntil, toDate } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { stats, loading, error } = useItems();
+  const { loans } = useLoans();
+
+  const activeLoans = loans.filter((l) => l.status === "active");
+  const overdueLoans = activeLoans.filter((l) => {
+    const d = daysUntil(toDate(l.dueDate));
+    return d !== null && d < 0;
+  }).length;
 
   return (
     <div className="space-y-6">
@@ -38,10 +47,11 @@ export default function DashboardPage() {
           icon={Boxes}
         />
         <StatCard
-          label="Categories"
-          value={loading ? "—" : Object.values(stats.byCategory).filter(Boolean).length}
-          hint="Active asset categories"
-          icon={Layers}
+          label="On Loan"
+          value={loading ? "—" : activeLoans.length}
+          hint={overdueLoans > 0 ? `${overdueLoans} overdue` : "none overdue"}
+          icon={HandHelping}
+          tone={overdueLoans > 0 ? "danger" : "default"}
         />
         <StatCard
           label="Low Stock Alerts"
