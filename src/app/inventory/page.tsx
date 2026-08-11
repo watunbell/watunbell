@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Download, HandHelping, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useItems } from "@/hooks/useItems";
 import { ConfigNotice } from "@/components/ConfigNotice";
 import { Modal } from "@/components/ui/Modal";
 import { ItemForm } from "@/components/inventory/ItemForm";
 import { StatusSelect } from "@/components/inventory/StatusSelect";
 import { DeleteConfirm } from "@/components/inventory/DeleteConfirm";
+import { BorrowForm } from "@/components/inventory/BorrowForm";
 import { CATEGORIES, CATEGORY_MAP } from "@/lib/constants";
 import { isExpiringSoon, isLowStock } from "@/lib/items";
 import { downloadItemsCsv } from "@/lib/export";
@@ -20,6 +21,7 @@ export default function InventoryPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [deleting, setDeleting] = useState<InventoryItem | null>(null);
+  const [borrowing, setBorrowing] = useState<InventoryItem | null>(null);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
@@ -192,6 +194,17 @@ export default function InventoryPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        {item.status === "available" ? (
+                          <button
+                            type="button"
+                            onClick={() => setBorrowing(item)}
+                            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand-600"
+                            aria-label={`Borrow ${item.name}`}
+                            title="Borrow"
+                          >
+                            <HandHelping className="h-4 w-4" />
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => openEdit(item)}
@@ -238,6 +251,22 @@ export default function InventoryPage() {
         onClose={() => setDeleting(null)}
         onDeleted={() => setDeleting(null)}
       />
+
+      {/* Borrow */}
+      <Modal
+        open={Boolean(borrowing)}
+        onClose={() => setBorrowing(null)}
+        title="Borrow item"
+        size="max-w-lg"
+      >
+        {borrowing ? (
+          <BorrowForm
+            item={borrowing}
+            onDone={() => setBorrowing(null)}
+            onCancel={() => setBorrowing(null)}
+          />
+        ) : null}
+      </Modal>
     </div>
   );
 }

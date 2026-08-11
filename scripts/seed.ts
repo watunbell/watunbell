@@ -81,21 +81,35 @@ const SAMPLE: Sample[] = [
   { name: "Whiteboard Markers (assorted)", category: "office_supplies", quantity: 40, unit: "pcs", minQuantity: 15, status: "available", location: "Office storeroom" },
 ];
 
-function toRow(sample: Sample): string[] {
+const LOANS_TAB = process.env.GOOGLE_SHEETS_LOANS_TAB ?? "Loans";
+const LOAN_COLUMNS = [
+  "id",
+  "itemId",
+  "itemName",
+  "borrower",
+  "quantity",
+  "borrowedAt",
+  "dueDate",
+  "returnedAt",
+  "status",
+  "recordedBy",
+  "notes",
+  "createdAt",
+  "updatedAt",
+] as const;
+
+/** Build an item row and return both its generated id and the cell values. */
+function buildItemRow(sample: Sample): { id: string; row: string[] } {
   const now = new Date().toISOString();
-  const full: Record<string, unknown> = {
-    ...sample,
-    id: randomUUID(),
-    createdAt: now,
-    updatedAt: now,
-  };
-  return COLUMNS.map((c) => String(full[c] ?? ""));
+  const id = randomUUID();
+  const full: Record<string, unknown> = { ...sample, id, createdAt: now, updatedAt: now };
+  return { id, row: COLUMNS.map((c) => String(full[c] ?? "")) };
 }
 
 async function main() {
   console.log(`Seeding ${SAMPLE.length} items into sheet tab "${TAB}"…`);
 
-  // Ensure the header row exists.
+  // Ensure the Items header row exists.
   const header = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: `${TAB}!A1:Q1`,
@@ -107,17 +121,66 @@ async function main() {
       valueInputOption: "RAW",
       requestBody: { values: [[...COLUMNS]] },
     });
-    console.log("  · wrote header row");
+    console.log("  · wrote Items header row");
   }
 
+  const built = SAMPLE.map((s) => ({ sample: s, ...buildItemRow(s) }));
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
     range: `${TAB}!A:Q`,
     valueInputOption: "RAW",
-    requestBody: { values: SAMPLE.map(toRow) },
+    requestBody: { values: built.map((b) => b.row) },
+  });
+  for (const b of built) console.log(`  ✓ ${b.sample.name}`);
+
+  // --- Loans tab: create it, add header, and one sample active loan --------
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  if (!meta.data.sheets?.some((s) => s.properties?.title === LOANS_TAB)) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: LOANS_TAB } } }],
+      },
+    });
+    console.log(`  · created "${LOANS_TAB}" tab`);
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${LOANS_TAB}!A1:M1`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[...LOAN_COLUMNS]] },
   });
 
-  for (const s of SAMPLE) console.log(`  ✓ ${s.name}`);
+  // Match the sample loan to the item seeded with status "borrowed".
+  const borrowed = built.find((b) => b.sample.status === "borrowed");
+  if (borrowed) {
+    const now = new Date().toISOString();
+    const today = now.slice(0, 10);
+    const due = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+    const loan: Record<string, unknown> = {
+      id: randomUUID(),
+      itemId: borrowed.id,
+      itemName: borrowed.sample.name,
+      borrower: "อ.วิภา (Physics)",
+      quantity: 1,
+      borrowedAt: today,
+      dueDate: due,
+      returnedAt: "",
+      status: "active",
+      recordedBy: "seed@" + (process.env.NEXT_PUBLIC_ALLOWED_DOMAIN ?? "g.swu.ac.th"),
+      notes: "Seeded sample loan",
+      createdAt: now,
+      updatedAt: now,
+    };
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${LOANS_TAB}!A:M`,
+      valueInputOption: "RAW",
+      requestBody: { values: [LOAN_COLUMNS.map((c) => String(loan[c] ?? ""))] },
+    });
+    console.log(`  ✓ sample loan for ${borrowed.sample.name}`);
+  }
+
   console.log("Done.");
   process.exit(0);
 }

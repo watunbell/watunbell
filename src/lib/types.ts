@@ -71,6 +71,41 @@ export type InventoryItemInput = Omit<
   "id" | "createdAt" | "updatedAt"
 >;
 
+/** Whether a loan is still outstanding or has been returned. */
+export type LoanStatus = "active" | "returned";
+
+/**
+ * A borrow/return record — one row in the `Loans` tab. Together these form the
+ * audit trail: who borrowed what, when, and who recorded each action.
+ */
+export interface Loan {
+  id: string;
+  itemId: string;
+  /** Snapshot of the item name at borrow time (kept readable in the sheet). */
+  itemName: string;
+  /** Who physically holds the item (student / staff name). */
+  borrower: string;
+  quantity: number;
+  borrowedAt: string; // ISO date
+  dueDate?: string | null; // ISO date
+  returnedAt?: string | null; // ISO date, set on return
+  status: LoanStatus;
+  /** Email of the signed-in staff member who recorded the action (audit). */
+  recordedBy: string;
+  notes?: string;
+  createdAt: string; // ISO datetime
+  updatedAt: string; // ISO datetime
+}
+
+/** Payload for recording a new borrow. */
+export interface LoanInput {
+  itemId: string;
+  borrower: string;
+  quantity?: number;
+  dueDate?: string | null;
+  notes?: string;
+}
+
 /** Aggregated numbers powering the dashboard cards + charts. */
 export interface DashboardStats {
   totalItems: number;

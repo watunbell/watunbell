@@ -33,6 +33,33 @@ code that reads/writes the sheet.
 | P   | `createdAt`    | ISO 8601 datetime    | Set on create.                                              |
 | Q   | `updatedAt`    | ISO 8601 datetime    | Set on every write.                                         |
 
+## Loans tab (`Loans`)
+
+The borrow/return audit trail lives in a second tab (auto-created on the first
+borrow, or by the seed script). One row per loan event.
+
+| Col | Key          | Type / format     | Notes                                              |
+| --- | ------------ | ----------------- | -------------------------------------------------- |
+| A   | `id`         | UUID string       | Loan id.                                           |
+| B   | `itemId`     | UUID string       | References an `Items` row.                         |
+| C   | `itemName`   | string            | Snapshot of the item name at borrow time.          |
+| D   | `borrower`   | string            | Who physically holds the item.                     |
+| E   | `quantity`   | number            | Units borrowed.                                    |
+| F   | `borrowedAt` | `YYYY-MM-DD`      | When borrowed.                                     |
+| G   | `dueDate`    | `YYYY-MM-DD`      | Expected return (optional).                         |
+| H   | `returnedAt` | `YYYY-MM-DD`      | Set when returned.                                 |
+| I   | `status`     | enum              | `active` \| `returned`.                            |
+| J   | `recordedBy` | email             | **Signed-in staff who recorded the action** (audit). |
+| K   | `notes`      | string            |                                                    |
+| L   | `createdAt`  | ISO datetime      |                                                    |
+| M   | `updatedAt`  | ISO datetime      |                                                    |
+
+Borrowing appends an `active` loan **and** flips the item's `status` to
+`borrowed`; returning sets `returnedAt`/`status = returned` **and** flips the
+item back to `available`. Both sides are written server-side in one request
+(`/api/loans`). `recordedBy` is taken from the authenticated session, so it
+cannot be spoofed by the client.
+
 ## Access model
 
 - **Reads/writes** go through the app's Next.js API routes (`/api/items`), which

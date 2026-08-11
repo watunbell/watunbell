@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Boxes, Package, LogOut } from "lucide-react";
+import { LayoutDashboard, Boxes, Package, LogOut, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inventory", label: "Inventory", icon: Boxes },
+  { href: "/loans", label: "Loan History", icon: History },
 ];
 
 export function Sidebar() {

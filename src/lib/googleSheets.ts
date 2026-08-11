@@ -1,6 +1,11 @@
 import "server-only";
 import { google } from "googleapis";
-import type { InventoryItem, InventoryItemInput } from "./types";
+import type {
+  InventoryItem,
+  InventoryItemInput,
+  Loan,
+  LoanInput,
+} from "./types";
 
 /**
  * Google Sheets data layer (server-only).
@@ -13,6 +18,7 @@ import type { InventoryItem, InventoryItemInput } from "./types";
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
 const TAB = process.env.GOOGLE_SHEETS_TAB ?? "Items";
+const LOANS_TAB = process.env.GOOGLE_SHEETS_LOANS_TAB ?? "Loans";
 
 /** Column order in the sheet. Also the header row written by `ensureHeader`. */
 const COLUMNS = [
@@ -188,6 +194,11 @@ export async function updateItem(
   return merged;
 }
 
+export async function getItemById(id: string): Promise<InventoryItem | null> {
+  const items = await listItems();
+  return items.find((i) => i.id === id) ?? null;
+}
+
 export async function deleteItem(id: string): Promise<boolean> {
   const sheets = getSheetsClient();
   const rowNumber = await findRowNumber(id);
@@ -233,4 +244,205 @@ export async function ensureHeader(): Promise<void> {
       requestBody: { values: [[...COLUMNS]] },
     });
   }
+}
+
+// ===========================================================================
+// Loans (borrow/return audit trail) — the `Loans` tab
+// ===========================================================================
+
+const LOAN_COLUMNS = [
+  "id",
+  "itemId",
+  "itemName",
+  "borrower",
+  "quantity",
+  "borrowedAt",
+  "dueDate",
+  "returnedAt",
+  "status",
+  "recordedBy",
+  "notes",
+  "createdAt",
+  "updatedAt",
+] as const;
+
+type LoanColumn = (typeof LOAN_COLUMNS)[number];
+
+const LOAN_LAST_COL = "M"; // 13 columns → A..M
+
+function loanToRow(loan: Loan): string[] {
+  const map: Record<LoanColumn, unknown> = {
+    id: loan.id,
+    itemId: loan.itemId,
+    itemName: loan.itemName,
+    borrower: loan.borrower,
+    quantity: loan.quantity,
+    borrowedAt: loan.borrowedAt,
+    dueDate: loan.dueDate ?? "",
+    returnedAt: loan.returnedAt ?? "",
+    status: loan.status,
+    recordedBy: loan.recordedBy,
+    notes: loan.notes ?? "",
+    createdAt: loan.createdAt,
+    updatedAt: loan.updatedAt,
+  };
+  return LOAN_COLUMNS.map((c) => String(map[c] ?? ""));
+}
+
+function loanFromRow(row: string[]): Loan {
+  const get = (c: LoanColumn) => row[LOAN_COLUMNS.indexOf(c)] ?? "";
+  return {
+    id: get("id"),
+    itemId: get("itemId"),
+    itemName: get("itemName"),
+    borrower: get("borrower"),
+    quantity: get("quantity") === "" ? 1 : Number(get("quantity")),
+    borrowedAt: get("borrowedAt"),
+    dueDate: get("dueDate") || null,
+    returnedAt: get("returnedAt") || null,
+    status: (get("status") || "active") as Loan["status"],
+    recordedBy: get("recordedBy"),
+    notes: get("notes") || undefined,
+    createdAt: get("createdAt"),
+    updatedAt: get("updatedAt"),
+  };
+}
+
+/**
+ * Make sure the Loans tab exists (with its header). Appending to a missing tab
+ * fails, so this is called before any loan write.
+ */
+export async function ensureLoansSheet(): Promise<void> {
+  const sheets = getSheetsClient();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const exists = meta.data.sheets?.some(
+    (s) => s.properties?.title === LOANS_TAB,
+  );
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: LOANS_TAB } } }],
+      },
+    });
+  }
+  const header = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${LOANS_TAB}!A1:${LOAN_LAST_COL}1`,
+  });
+  if (!header.data.values || header.data.values.length === 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${LOANS_TAB}!A1:${LOAN_LAST_COL}1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[...LOAN_COLUMNS]] },
+    });
+  }
+}
+
+export async function listLoans(): Promise<Loan[]> {
+  const sheets = getSheetsClient();
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${LOANS_TAB}!A2:${LOAN_LAST_COL}`,
+    });
+    const rows = res.data.values ?? [];
+    return rows
+      .filter((r) => (r[0] ?? "").toString().trim() !== "")
+      .map((r) => loanFromRow(r as string[]));
+  } catch {
+    // Tab not created yet → no loans recorded.
+    return [];
+  }
+}
+
+/**
+ * Record a borrow: append a loan row and flip the item's status to "borrowed".
+ * `recordedBy` is the acting staff email (from the session) — the audit stamp.
+ */
+export async function createLoan(
+  input: LoanInput,
+  recordedBy: string,
+): Promise<Loan> {
+  const item = await getItemById(input.itemId);
+  if (!item) throw new Error("Item not found.");
+
+  await ensureLoansSheet();
+  const sheets = getSheetsClient();
+  const now = new Date().toISOString();
+  const loan: Loan = {
+    id: crypto.randomUUID(),
+    itemId: input.itemId,
+    itemName: item.name,
+    borrower: input.borrower,
+    quantity: input.quantity ?? 1,
+    borrowedAt: now.slice(0, 10),
+    dueDate: input.dueDate ?? null,
+    returnedAt: null,
+    status: "active",
+    recordedBy,
+    notes: input.notes,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${LOANS_TAB}!A:${LOAN_LAST_COL}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [loanToRow(loan)] },
+  });
+
+  // Keep item status in sync with the loan.
+  await updateItem(input.itemId, { status: "borrowed" });
+  return loan;
+}
+
+async function findLoanRowNumber(id: string): Promise<number | null> {
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${LOANS_TAB}!A2:A`,
+  });
+  const ids = res.data.values ?? [];
+  const idx = ids.findIndex((r) => (r[0] ?? "") === id);
+  return idx === -1 ? null : idx + 2;
+}
+
+/**
+ * Record a return: mark the loan returned and flip the item back to
+ * "available". `recordedBy` stamps who processed the return.
+ */
+export async function returnLoan(
+  id: string,
+  recordedBy: string,
+): Promise<Loan | null> {
+  const sheets = getSheetsClient();
+  const rowNumber = await findLoanRowNumber(id);
+  if (rowNumber === null) return null;
+
+  const current = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${LOANS_TAB}!A${rowNumber}:${LOAN_LAST_COL}${rowNumber}`,
+  });
+  const existing = loanFromRow((current.data.values?.[0] ?? []) as string[]);
+  if (existing.status === "returned") return existing;
+
+  const now = new Date().toISOString();
+  const updated: Loan = {
+    ...existing,
+    returnedAt: now.slice(0, 10),
+    status: "returned",
+    recordedBy,
+    updatedAt: now,
+  };
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${LOANS_TAB}!A${rowNumber}:${LOAN_LAST_COL}${rowNumber}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [loanToRow(updated)] },
+  });
+
+  await updateItem(existing.itemId, { status: "available" });
+  return updated;
 }

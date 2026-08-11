@@ -25,6 +25,10 @@ for sign-in. No Firebase.
   IT/Computing Devices, General Office Supplies.
 - **Status tracking** — instant status updates for durable goods (ครุภัณฑ์):
   Available, In-Use/Borrowed, Maintenance/Broken, Retired.
+- **Loan / borrow audit trail** — record borrows (borrower, quantity, due date)
+  and returns from the UI; each action stamps *who* recorded it (the signed-in
+  staff email) and keeps the item's status in sync. A Loan History page shows
+  the full trail with active/returned filters and overdue highlighting.
 - **Reporting export** — one-click CSV export (UTF-8 BOM, respects the active
   search/category filters) for faculty reporting.
 
@@ -99,25 +103,30 @@ src/
     layout.tsx              # Root: Providers (NextAuth) + AppShell
     page.tsx                # Redirects to /dashboard
     dashboard/page.tsx      # Stat cards + bar/donut charts
-    inventory/page.tsx      # CRUD table, search/filter, CSV export
+    inventory/page.tsx      # CRUD table, search/filter, borrow, CSV export
+    loans/page.tsx          # Borrow/return audit trail
     api/
       auth/[...nextauth]/   # NextAuth route handler
       items/                # GET/POST items
       items/[id]/           # PATCH/DELETE an item
+      loans/                # GET/POST loans (borrow)
+      loans/[id]/           # PATCH a loan (return)
   components/
     Providers.tsx           # SessionProvider wrapper
     AppShell.tsx            # Auth gate + sidebar/main chrome
     auth/                   # SignInScreen
-    inventory/              # ItemForm, StatusSelect, DeleteConfirm
+    inventory/              # ItemForm, StatusSelect, DeleteConfirm, BorrowForm
     charts/                 # CategoryBarChart, StatusDonutChart, ChartCard
     ui/                     # Modal, form fields
   context/AuthContext.tsx   # useAuth adapter over NextAuth session
   hooks/useItems.ts         # Polling + change-event data hook
+  hooks/useLoans.ts         # Loan history data hook
   lib/
     authOptions.ts          # NextAuth config (Google, domain restriction)
     apiAuth.ts              # API route guard (server-only)
-    googleSheets.ts         # Sheets read/write (server-only)
+    googleSheets.ts         # Sheets read/write incl. loans (server-only)
     items.ts                # Client CRUD (fetch) + stats aggregation
+    loans.ts                # Client borrow/return
     types.ts                # Domain model
     constants.ts            # Categories, statuses, ALLOWED_DOMAIN
     export.ts               # CSV report builder + download

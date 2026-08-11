@@ -23,7 +23,7 @@ export function onItemsChanged(handler: () => void): () => void {
   return () => window.removeEventListener(ITEMS_CHANGED, handler);
 }
 
-function notifyItemsChanged() {
+export function notifyItemsChanged() {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(ITEMS_CHANGED));
   }
