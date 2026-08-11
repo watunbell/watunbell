@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Timestamp } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { CATEGORIES, CATEGORY_MAP, STATUSES } from "@/lib/constants";
 import type {
@@ -85,14 +84,9 @@ export function ItemForm({ item, onDone, onCancel }: ItemFormProps) {
       description: description.trim() || undefined,
       notes: notes.trim() || undefined,
       unitPrice: unitPrice.trim() ? Number(unitPrice) : undefined,
-      // Dates use null (not undefined) so clearing them removes the value.
-      expiryDate:
-        tracksExpiry && expiryDate
-          ? Timestamp.fromDate(new Date(expiryDate))
-          : null,
-      acquiredDate: acquiredDate
-        ? Timestamp.fromDate(new Date(acquiredDate))
-        : null,
+      // Dates are stored as YYYY-MM-DD strings; null clears the value.
+      expiryDate: tracksExpiry && expiryDate ? expiryDate : null,
+      acquiredDate: acquiredDate ? acquiredDate : null,
     });
 
     setSaving(true);

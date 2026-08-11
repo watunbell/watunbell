@@ -89,10 +89,19 @@ export const STATUS_MAP: Record<ItemStatus, StatusMeta> = Object.fromEntries(
   STATUSES.map((s) => [s.key, s]),
 ) as Record<ItemStatus, StatusMeta>;
 
-/** Firestore collection names — single source of truth. */
-export const COLLECTIONS = {
-  items: "items",
-} as const;
-
 /** Number of days before expiry at which a reagent is flagged "expiring soon". */
 export const EXPIRING_SOON_DAYS = 30;
+
+/**
+ * Only Google Workspace accounts on this domain may use the system.
+ * Overridable via env for other deployments. Keep this in sync with the
+ * service account's access to the Google Sheet.
+ */
+export const ALLOWED_DOMAIN =
+  process.env.NEXT_PUBLIC_ALLOWED_DOMAIN ?? "g.swu.ac.th";
+
+/** True if the email belongs to the allowed Workspace domain. */
+export function isAllowedEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return email.toLowerCase().endsWith(`@${ALLOWED_DOMAIN}`);
+}

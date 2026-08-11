@@ -1,52 +1,70 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { subscribeToItems, computeStats } from "@/lib/items";
-import { isFirebaseConfigured } from "@/lib/firebase";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+import { computeStats, fetchItems, onItemsChanged } from "@/lib/items";
 import type { DashboardStats, InventoryItem } from "@/lib/types";
+
+/** How often to poll the API for near-real-time updates (ms). */
+const POLL_INTERVAL = 4000;
 
 interface UseItemsResult {
   items: InventoryItem[];
   stats: DashboardStats;
   loading: boolean;
   error: string | null;
-  configured: boolean;
+  refresh: () => void;
 }
 
 /**
- * Live view of the inventory. Attaches a Firestore snapshot listener on mount
- * so the whole UI re-renders the instant data changes on any client.
+ * Live-ish view of the inventory. Polls the API every few seconds and also
+ * refreshes immediately whenever this client mutates data (via the
+ * `items:changed` event), approximating Firebase's real-time behaviour on top
+ * of a Google Sheet.
  */
 export function useItems(): UseItemsResult {
+  const { status } = useSession();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isFirebaseConfigured) {
+  // Keep the latest fetch in a ref so the interval/event handlers stay stable.
+  const load = useCallback(async () => {
+    try {
+      const next = await fetchItems();
+      setItems(next);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load items.");
+    } finally {
       setLoading(false);
-      setError(
-        "Firebase is not configured. Copy .env.example to .env.local and add your project credentials.",
-      );
-      return;
     }
-
-    const unsubscribe = subscribeToItems(
-      (next) => {
-        setItems(next);
-        setLoading(false);
-        setError(null);
-      },
-      (err) => {
-        setError(err.message);
-        setLoading(false);
-      },
-    );
-
-    return () => unsubscribe();
   }, []);
+
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    loadRef.current();
+    const interval = setInterval(() => loadRef.current(), POLL_INTERVAL);
+    const off = onItemsChanged(() => loadRef.current());
+
+    // Pause polling when the tab is hidden; refresh on return.
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") loadRef.current();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      off();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [status]);
 
   const stats = useMemo(() => computeStats(items), [items]);
 
-  return { items, stats, loading, error, configured: isFirebaseConfigured };
+  return { items, stats, loading, error, refresh: load };
 }

@@ -15,7 +15,7 @@ import { cn, formatDate } from "@/lib/utils";
 import type { Category, InventoryItem } from "@/lib/types";
 
 export default function InventoryPage() {
-  const { items, loading, error, configured } = useItems();
+  const { items, loading, error } = useItems();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
@@ -83,7 +83,6 @@ export default function InventoryPage() {
           <button
             type="button"
             onClick={openCreate}
-            disabled={!configured}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />

@@ -1,20 +1,4 @@
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-  updateDoc,
-  type DocumentData,
-  type FirestoreDataConverter,
-  type QueryDocumentSnapshot,
-  type WithFieldValue,
-} from "firebase/firestore";
-import { db } from "./firebase";
-import { COLLECTIONS, EXPIRING_SOON_DAYS } from "./constants";
+import { EXPIRING_SOON_DAYS } from "./constants";
 import type {
   Category,
   DashboardStats,
@@ -25,56 +9,65 @@ import type {
 import { daysUntil, toDate } from "./utils";
 
 /**
- * Firestore converter so reads/writes are typed as InventoryItem end-to-end.
- * `id` is stripped on write (it is the doc id) and injected on read.
+ * Client-side data access. CRUD goes through the Next.js API routes (which gate
+ * on the authenticated @g.swu.ac.th session and talk to Google Sheets); reads
+ * are handled by `useItems` via polling. After any mutation we broadcast a
+ * change event so the live view refreshes immediately, on top of the poll.
  */
-const itemConverter: FirestoreDataConverter<InventoryItem> = {
-  toFirestore(item: WithFieldValue<InventoryItem>): DocumentData {
-    const { id, ...rest } = item as { id?: unknown } & DocumentData;
-    void id;
-    return rest;
-  },
-  fromFirestore(snapshot: QueryDocumentSnapshot): InventoryItem {
-    const data = snapshot.data();
-    return { id: snapshot.id, ...(data as Omit<InventoryItem, "id">) };
-  },
-};
 
-const itemsCollection = () =>
-  collection(db, COLLECTIONS.items).withConverter(itemConverter);
+const ITEMS_CHANGED = "items:changed";
 
-/**
- * Subscribe to the full items collection in real time.
- * Returns an unsubscribe function. This is the backbone of the live dashboard:
- * any create/update/delete on any client pushes here instantly.
- */
-export function subscribeToItems(
-  onData: (items: InventoryItem[]) => void,
-  onError?: (error: Error) => void,
-): () => void {
-  const q = query(itemsCollection(), orderBy("name"));
-  return onSnapshot(
-    q,
-    (snap) => onData(snap.docs.map((d) => d.data())),
-    (err) => onError?.(err),
-  );
+export function onItemsChanged(handler: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(ITEMS_CHANGED, handler);
+  return () => window.removeEventListener(ITEMS_CHANGED, handler);
+}
+
+function notifyItemsChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(ITEMS_CHANGED));
+  }
+}
+
+async function parseError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    return data?.error ?? `Request failed (${res.status})`;
+  } catch {
+    return `Request failed (${res.status})`;
+  }
+}
+
+export async function fetchItems(): Promise<InventoryItem[]> {
+  const res = await fetch("/api/items", { cache: "no-store" });
+  if (!res.ok) throw new Error(await parseError(res));
+  const data = await res.json();
+  return (data.items ?? []) as InventoryItem[];
 }
 
 export async function createItem(input: InventoryItemInput): Promise<string> {
-  const ref = await addDoc(itemsCollection(), {
-    ...input,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  } as unknown as InventoryItem);
-  return ref.id;
+  const res = await fetch("/api/items", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  const { item } = await res.json();
+  notifyItemsChanged();
+  return item.id as string;
 }
 
 export async function updateItem(
   id: string,
   changes: Partial<InventoryItemInput>,
 ): Promise<void> {
-  const ref = doc(db, COLLECTIONS.items, id);
-  await updateDoc(ref, { ...changes, updatedAt: serverTimestamp() });
+  const res = await fetch(`/api/items/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(changes),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  notifyItemsChanged();
 }
 
 /** Instant status change for a durable good (ครุภัณฑ์). */
@@ -82,12 +75,13 @@ export async function updateItemStatus(
   id: string,
   status: ItemStatus,
 ): Promise<void> {
-  const ref = doc(db, COLLECTIONS.items, id);
-  await updateDoc(ref, { status, updatedAt: serverTimestamp() });
+  await updateItem(id, { status });
 }
 
 export async function deleteItem(id: string): Promise<void> {
-  await deleteDoc(doc(db, COLLECTIONS.items, id));
+  const res = await fetch(`/api/items/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await parseError(res));
+  notifyItemsChanged();
 }
 
 // --- Derived helpers (pure — safe to unit test) ---------------------------
@@ -118,7 +112,7 @@ const EMPTY_CATEGORY: Record<Category, number> = {
   office_supplies: 0,
 };
 
-/** Compute all dashboard aggregates from the live item list in one pass. */
+/** Compute all dashboard aggregates from the item list in one pass. */
 export function computeStats(items: InventoryItem[]): DashboardStats {
   const byStatus = { ...EMPTY_STATUS };
   const byCategory = { ...EMPTY_CATEGORY };

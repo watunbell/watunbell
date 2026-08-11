@@ -1,21 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, Package } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { ALLOWED_DOMAIN } from "@/lib/auth";
+import { ALLOWED_DOMAIN } from "@/lib/constants";
 
 export function SignInScreen() {
-  const { signIn, error, configured } = useAuth();
+  const { signIn } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleSignIn() {
-    setBusy(true);
-    try {
-      await signIn();
-    } finally {
-      setBusy(false);
+  // NextAuth redirects back with ?error=… when the domain check rejects a user.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (err === "AccessDenied") {
+      setError(`Access is restricted to @${ALLOWED_DOMAIN} accounts.`);
+    } else if (err) {
+      setError("Sign-in failed. Please try again.");
     }
+  }, []);
+
+  function handleSignIn() {
+    setBusy(true);
+    signIn();
   }
 
   return (
@@ -33,14 +41,6 @@ export function SignInScreen() {
           </p>
         </div>
 
-        {!configured ? (
-          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Firebase is not configured. Add your credentials to{" "}
-            <code className="rounded bg-amber-100 px-1">.env.local</code> to
-            enable sign-in.
-          </p>
-        ) : null}
-
         {error ? (
           <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -50,14 +50,10 @@ export function SignInScreen() {
         <button
           type="button"
           onClick={handleSignIn}
-          disabled={busy || !configured}
+          disabled={busy}
           className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : (
-            <GoogleIcon />
-          )}
+          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleIcon />}
           Sign in with Google
         </button>
 

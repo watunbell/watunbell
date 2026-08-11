@@ -1,8 +1,6 @@
-import type { Timestamp } from "firebase/firestore";
-
 /**
  * Asset categories handled by the department.
- * The value is the stable key stored in Firestore; labels for display live in
+ * The value is the stable key stored in the sheet; labels for display live in
  * `constants.ts` (bilingual TH/EN).
  */
 export type Category =
@@ -23,9 +21,10 @@ export type ItemStatus =
   | "retired"; // ปลดระวาง / จำหน่ายออก
 
 /**
- * A single inventory record.
- * Stored in the `items` collection. `id` is the Firestore document id and is
- * NOT persisted inside the document body.
+ * A single inventory record — one row in the Google Sheet.
+ * Dates are ISO strings because a spreadsheet stores everything as text:
+ *  - `expiryDate` / `acquiredDate`: `YYYY-MM-DD`
+ *  - `createdAt` / `updatedAt`: full ISO 8601 datetime
  */
 export interface InventoryItem {
   id: string;
@@ -50,22 +49,22 @@ export interface InventoryItem {
   custodian?: string; // Person responsible / ผู้ดูแล
 
   // --- Category-specific --------------------------------------------------
-  /** Expiry date — meaningful for `reagents_chemicals`. */
-  expiryDate?: Timestamp | null;
-  /** Purchase / acquisition date. */
-  acquiredDate?: Timestamp | null;
+  /** Expiry date (YYYY-MM-DD) — meaningful for `reagents_chemicals`. */
+  expiryDate?: string | null;
+  /** Purchase / acquisition date (YYYY-MM-DD). */
+  acquiredDate?: string | null;
   /** Purchase cost in THB (for faculty asset reporting). */
   unitPrice?: number;
 
   // --- Bookkeeping --------------------------------------------------------
   notes?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: string; // ISO datetime
+  updatedAt: string; // ISO datetime
 }
 
 /**
- * Shape used when writing to Firestore. `id` is excluded (it is the doc id),
- * and timestamps are set server-side via `serverTimestamp()`.
+ * Shape used when creating/updating an item. `id` is assigned server-side and
+ * timestamps are set server-side, so they are excluded here.
  */
 export type InventoryItemInput = Omit<
   InventoryItem,

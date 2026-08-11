@@ -1,20 +1,20 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { Timestamp } from "firebase/firestore";
 
 /** Merge Tailwind classes with conditional logic, de-duplicating conflicts. */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Convert a Firestore Timestamp (or nullish) to a JS Date, or null. */
-export function toDate(ts?: Timestamp | null): Date | null {
-  if (!ts) return null;
-  return typeof ts.toDate === "function" ? ts.toDate() : null;
+/** Parse an ISO date/datetime string (or nullish) to a JS Date, or null. */
+export function toDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Format a Firestore Timestamp / Date for display (locale-aware). */
-export function formatDate(value?: Timestamp | Date | null): string {
+/** Format an ISO date string / Date for display (locale-aware). */
+export function formatDate(value?: string | Date | null): string {
   const d = value instanceof Date ? value : toDate(value ?? null);
   if (!d) return "—";
   return new Intl.DateTimeFormat("en-GB", {
@@ -41,8 +41,12 @@ export function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
   ) as T;
 }
 
-/** Format a Firestore Timestamp / Date as an <input type="date"> value. */
-export function toDateInputValue(value?: Timestamp | Date | null): string {
+/** Format an ISO date string / Date as an <input type="date"> value. */
+export function toDateInputValue(value?: string | Date | null): string {
+  // Already a plain YYYY-MM-DD string — use as-is.
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return value;
+  }
   const d = value instanceof Date ? value : toDate(value ?? null);
   if (!d) return "";
   const yyyy = d.getFullYear();

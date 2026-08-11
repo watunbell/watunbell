@@ -9,7 +9,7 @@ import { CategoryBarChart } from "@/components/charts/CategoryBarChart";
 import { StatusDonutChart } from "@/components/charts/StatusDonutChart";
 
 export default function DashboardPage() {
-  const { stats, loading, error, configured } = useItems();
+  const { stats, loading, error } = useItems();
 
   return (
     <div className="space-y-6">
@@ -20,7 +20,7 @@ export default function DashboardPage() {
             Live overview of department inventory & equipment.
           </p>
         </div>
-        {configured && !loading ? (
+        {!loading && !error ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
             Live
