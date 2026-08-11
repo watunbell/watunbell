@@ -1,25 +1,30 @@
 /**
  * Seed the `items` collection with representative sample data.
  *
- * Usage:
- *   1. Configure .env.local (or point at the emulator with
- *      NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true).
- *   2. npm run seed
+ * Uses the Firebase Admin SDK, which bypasses Firestore security rules — the
+ * correct tool for an out-of-band seeding script now that the rules require an
+ * authenticated @g.swu.ac.th user.
  *
- * Loads env from .env.local, then writes a handful of items across every
- * category and status so the dashboard has something to render.
+ * Usage:
+ *
+ *   Against the emulator (no credentials needed):
+ *     NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true firebase emulators:start --only auth,firestore
+ *     npm run seed
+ *
+ *   Against a real project:
+ *     Download a service account key (Firebase Console > Project settings >
+ *     Service accounts > Generate new private key), save it as
+ *     serviceAccountKey.json in the repo root (git-ignored), then:
+ *     npm run seed
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { initializeApp } from "firebase/app";
+import { cert, applicationDefault, initializeApp } from "firebase-admin/app";
 import {
+  FieldValue,
   Timestamp,
-  addDoc,
-  collection,
-  connectFirestoreEmulator,
   getFirestore,
-  serverTimestamp,
-} from "firebase/firestore";
+} from "firebase-admin/firestore";
 
 // --- minimal .env.local loader (no dotenv dependency) ---------------------
 function loadEnv() {
@@ -37,22 +42,28 @@ function loadEnv() {
 }
 loadEnv();
 
-const app = initializeApp({
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "demo-inventory",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-});
+const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
+const projectId =
+  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "demo-inventory";
+const keyPath = resolve(process.cwd(), "serviceAccountKey.json");
 
-const db = getFirestore(app);
-
-if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true") {
+if (useEmulator) {
+  // The Admin SDK talks to the emulator when this env var is set, and needs no
+  // real credentials in that mode.
   const host = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_HOST ?? "localhost";
-  const port = Number(process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_PORT ?? 8080);
-  connectFirestoreEmulator(db, host, port);
+  const port = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_PORT ?? "8080";
+  process.env.FIRESTORE_EMULATOR_HOST = `${host}:${port}`;
+  initializeApp({ projectId });
+} else if (existsSync(keyPath)) {
+  initializeApp({
+    credential: cert(JSON.parse(readFileSync(keyPath, "utf8"))),
+  });
+} else {
+  // Falls back to GOOGLE_APPLICATION_CREDENTIALS if set.
+  initializeApp({ credential: applicationDefault(), projectId });
 }
+
+const db = getFirestore();
 
 const daysFromNow = (n: number) =>
   Timestamp.fromDate(new Date(Date.now() + n * 24 * 60 * 60 * 1000));
@@ -145,17 +156,16 @@ const SAMPLE = [
 ] as const;
 
 async function main() {
-  const target =
-    process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true"
-      ? "Firestore emulator"
-      : `project "${app.options.projectId}"`;
+  const target = useEmulator
+    ? `Firestore emulator (${process.env.FIRESTORE_EMULATOR_HOST})`
+    : `project "${projectId}"`;
   console.log(`Seeding ${SAMPLE.length} items into ${target}…`);
 
   for (const item of SAMPLE) {
-    await addDoc(collection(db, "items"), {
+    await db.collection("items").add({
       ...item,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     console.log(`  ✓ ${item.name}`);
   }

@@ -1,40 +1,45 @@
 rules_version = '2';
 
 // ---------------------------------------------------------------------------
-// DEVELOPMENT RULES — open access so the app + emulator work out of the box.
-// DO NOT ship these to production.
+// PRODUCTION RULES
+// Access is restricted to signed-in staff whose Google account is on the
+// department's Workspace domain (@g.swu.ac.th). Writes are shape-validated.
+//
+// Enforcement is server-side here; the web app mirrors the same domain check
+// in src/lib/auth.ts for UX, but these rules are the real gate.
 // ---------------------------------------------------------------------------
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isDepartmentStaff() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.matches('.*@g[.]swu[.]ac[.]th$');
+    }
+
+    function validItem() {
+      let d = request.resource.data;
+      return d.name is string && d.name.size() > 0
+        && d.category in ['lab_equipment', 'reagents_chemicals', 'it_computing', 'office_supplies']
+        && d.status in ['available', 'borrowed', 'maintenance', 'retired']
+        && d.quantity is number && d.quantity >= 0
+        && d.minQuantity is number && d.minQuantity >= 0
+        && d.unit is string;
+    }
+
     match /items/{itemId} {
-      allow read, write: if true;
+      allow read: if isDepartmentStaff();
+      allow create, update: if isDepartmentStaff() && validItem();
+      allow delete: if isDepartmentStaff();
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// PRODUCTION EXAMPLE (uncomment + adapt once Firebase Auth is wired up).
-// Restricts access to signed-in staff on the department's Workspace domain,
-// and validates the document shape on write.
+// LOCAL DEVELOPMENT NOTE
+// When running against the Auth + Firestore emulators, sign-in still flows
+// through these rules. The Auth emulator lets you create test users with any
+// email, so use an @g.swu.ac.th address to pass the domain check. If you need
+// fully open access for a quick spike, temporarily replace the item rules with
+// `allow read, write: if true;` — but never ship that.
 // ---------------------------------------------------------------------------
-//
-// service cloud.firestore {
-//   match /databases/{database}/documents {
-//     function isStaff() {
-//       return request.auth != null
-//         && request.auth.token.email.matches('.*@g[.]swu[.]ac[.]th$');
-//     }
-//     function validItem() {
-//       let d = request.resource.data;
-//       return d.name is string
-//         && d.category in ['lab_equipment','reagents_chemicals','it_computing','office_supplies']
-//         && d.status in ['available','borrowed','maintenance','retired']
-//         && d.quantity is number && d.minQuantity is number;
-//     }
-//     match /items/{itemId} {
-//       allow read: if isStaff();
-//       allow create, update: if isStaff() && validItem();
-//       allow delete: if isStaff();
-//     }
-//   }
-// }

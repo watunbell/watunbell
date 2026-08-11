@@ -9,14 +9,16 @@ department, built with **Next.js (TypeScript)**, **Tailwind CSS**, and
 > Simulator); the leftover `index.html` at the repo root belongs to that
 > project and is not used by this app.
 
-## Features (planned & in progress)
+## Features
 
+- **Authentication** — Google sign-in restricted to the department's Google
+  Workspace domain (`@g.swu.ac.th`). Enforced both client-side (sign-in gate +
+  auto sign-out of other domains) and server-side (Firestore rules).
 - **Real-time dashboard** — total inventory, low-stock alerts, and equipment
-  status distribution, with bar charts (category breakdown) and donut charts
-  (status summary) that update live across all clients. _(scaffolded; charts
-  land next milestone)_
-- **Inventory CRUD** — create, read, update, delete assets. _(read view live;
-  full CRUD next milestone)_
+  status distribution, with a bar chart (category breakdown) and donut chart
+  (status summary) that update live across all clients.
+- **Inventory CRUD** — create, read, update, delete assets, with live search
+  and category filtering.
 - **Categorization** — Lab Equipment, Reagents/Chemicals (with expiry
   tracking), IT/Computing Devices, General Office Supplies.
 - **Status tracking** — instant status updates for durable goods (ครุภัณฑ์):
@@ -48,14 +50,29 @@ cp .env.example .env.local
 npm run dev            # http://localhost:3000
 ```
 
-### Using the Firestore emulator (no cloud project needed)
+### Enabling Google sign-in (one-time Firebase setup)
+
+In the Firebase Console for your project:
+
+1. **Authentication → Sign-in method →** enable **Google**.
+2. **Authentication → Settings → Authorized domains →** add the domain the app
+   runs on (`localhost` is there by default).
+3. (Recommended) In Google Cloud Console, configure the OAuth consent screen as
+   **Internal** for your `g.swu.ac.th` Workspace so only department accounts can
+   even reach the consent screen.
+
+The domain allow-list itself lives in code: `ALLOWED_DOMAIN` in
+`src/lib/auth.ts` and the matching check in `firestore.rules`.
+
+### Using the emulators (no cloud project needed)
 
 ```bash
 # In .env.local set:
 #   NEXT_PUBLIC_USE_FIREBASE_EMULATOR=true
-firebase emulators:start --only firestore
+firebase emulators:start --only auth,firestore
 npm run seed          # load sample data
 npm run dev
+# In the Auth emulator, create a test user with an @g.swu.ac.th email.
 ```
 
 ## Project structure
@@ -63,21 +80,29 @@ npm run dev
 ```
 src/
   app/
-    layout.tsx           # App shell + sidebar
+    layout.tsx           # Root: AuthProvider + AppShell
     page.tsx             # Redirects to /dashboard
-    dashboard/page.tsx   # Live stats (charts coming next)
-    inventory/page.tsx   # Item table (read view)
-  components/            # Sidebar, StatCard, ConfigNotice, …
+    dashboard/page.tsx   # Live stat cards + bar/donut charts
+    inventory/page.tsx   # CRUD table, search/filter, CSV export
+  components/
+    AppShell.tsx         # Auth gate + sidebar/main chrome
+    auth/                # SignInScreen
+    inventory/           # ItemForm, StatusSelect, DeleteConfirm
+    charts/              # CategoryBarChart, StatusDonutChart, ChartCard
+    ui/                  # Modal, form fields
+  context/AuthContext.tsx # Session state + domain enforcement
   hooks/useItems.ts      # Real-time Firestore subscription hook
   lib/
-    firebase.ts          # Firebase app + Firestore init (+ emulator)
+    firebase.ts          # Firebase app + Firestore + Auth init (+ emulators)
+    auth.ts              # Google sign-in + @g.swu.ac.th domain check
     types.ts             # Domain model (mirrors the Firestore schema)
     constants.ts         # Categories, statuses, collection names
     items.ts             # CRUD, live listener, stats aggregation
+    export.ts            # CSV report builder + download
     utils.ts             # Formatting + class-name helpers
 scripts/seed.ts          # Sample-data seeder
 docs/FIRESTORE_SCHEMA.md # Data model reference
-firestore.rules          # Security rules (dev-open; prod example inside)
+firestore.rules          # Security rules (domain-restricted)
 ```
 
 ## Data model
@@ -88,6 +113,14 @@ real-time snapshot listener that powers the whole dashboard.
 
 ## Security
 
-`firestore.rules` ships **development-open** so the app runs immediately. Before
-any real deployment, switch to the authenticated production rules example
-included (commented) in that file.
+Access is gated on two layers that must agree:
+
+- **Client** — `AuthProvider` (`src/context/AuthContext.tsx`) only admits users
+  whose Google account is on `@g.swu.ac.th`; anyone else is signed out
+  immediately. This is UX, not the real boundary.
+- **Server** — `firestore.rules` allows reads/writes only for a verified,
+  domain-matching `request.auth` token, and shape-validates every write. This
+  is the real boundary; deploy it with `firebase deploy --only firestore:rules`.
+
+To change the allowed domain, update `ALLOWED_DOMAIN` in `src/lib/auth.ts` **and**
+the matching pattern in `firestore.rules`.

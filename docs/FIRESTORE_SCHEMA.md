@@ -81,11 +81,12 @@ link on first run.
 
 ## Security rules
 
-`firestore.rules` ships with **development-open** rules so the app works
-immediately with the emulator or a fresh project. Before any real deployment,
-tighten them — the recommended path is Firebase Auth restricted to the
-department's Google Workspace domain, with writes limited to authenticated
-staff. A commented production example is included in `firestore.rules`.
+`firestore.rules` restricts all access to authenticated staff whose Google
+account is on the department's Workspace domain (`@g.swu.ac.th`), and
+shape-validates writes (required fields, valid `category`/`status`, non-negative
+quantities). The web app mirrors the same domain check in `src/lib/auth.ts` for
+UX, but the rules are the real enforcement boundary. Deploy with
+`firebase deploy --only firestore:rules`.
 
 ## Future collections (not yet implemented)
 
