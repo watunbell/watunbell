@@ -31,6 +31,26 @@ export function daysUntil(date: Date | null): number | null {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Remove keys whose value is `undefined`. Firestore rejects `undefined` in
+ * writes, so form payloads are cleaned through here before create/update.
+ */
+export function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  ) as T;
+}
+
+/** Format a Firestore Timestamp / Date as an <input type="date"> value. */
+export function toDateInputValue(value?: Timestamp | Date | null): string {
+  const d = value instanceof Date ? value : toDate(value ?? null);
+  if (!d) return "";
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /** Format a number as Thai Baht. */
 export function formatTHB(value?: number): string {
   if (value == null) return "—";
