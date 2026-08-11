@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useItems } from "@/hooks/useItems";
 import { ConfigNotice } from "@/components/ConfigNotice";
 import { Modal } from "@/components/ui/Modal";
@@ -10,6 +10,7 @@ import { StatusSelect } from "@/components/inventory/StatusSelect";
 import { DeleteConfirm } from "@/components/inventory/DeleteConfirm";
 import { CATEGORIES, CATEGORY_MAP } from "@/lib/constants";
 import { isExpiringSoon, isLowStock } from "@/lib/items";
+import { downloadItemsCsv } from "@/lib/export";
 import { cn, formatDate } from "@/lib/utils";
 import type { Category, InventoryItem } from "@/lib/types";
 
@@ -64,15 +65,31 @@ export default function InventoryPage() {
             assets in real time.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          disabled={!configured}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" />
-          Add item
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => downloadItemsCsv(filtered)}
+            disabled={filtered.length === 0}
+            title={
+              filtered.length === 0
+                ? "Nothing to export"
+                : "Export current view to CSV"
+            }
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download className="h-4 w-4" />
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={openCreate}
+            disabled={!configured}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+            Add item
+          </button>
+        </div>
       </header>
 
       {error ? <ConfigNotice message={error} /> : null}

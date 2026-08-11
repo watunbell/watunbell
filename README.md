@@ -21,8 +21,9 @@ department, built with **Next.js (TypeScript)**, **Tailwind CSS**, and
   tracking), IT/Computing Devices, General Office Supplies.
 - **Status tracking** — instant status updates for durable goods (ครุภัณฑ์):
   Available, In-Use/Borrowed, Maintenance/Broken, Retired.
-- **Reporting export** — CSV / Google Sheets export for faculty reporting.
-  _(planned)_
+- **Reporting export** — one-click CSV export (UTF-8 BOM, respects the active
+  search/category filters) for faculty reporting. Import straight into Google
+  Sheets via **File → Import → Upload**.
 
 ## Tech stack
 
