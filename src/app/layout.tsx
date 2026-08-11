@@ -4,9 +4,9 @@ import { Providers } from "@/components/Providers";
 import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
-  title: "Department Inventory System",
+  title: "ระบบครุภัณฑ์ ภาควิชาจุลชีววิทยา คณะแพทยศาสตร์ มศว",
   description:
-    "Real-time inventory & equipment management for a university academic department.",
+    "ระบบบริหารจัดการครุภัณฑ์และอุปกรณ์แบบเรียลไทม์ ภาควิชาจุลชีววิทยา คณะแพทยศาสตร์ มหาวิทยาลัยศรีนครินทรวิโรฒ",
 };
 
 export default function RootLayout({

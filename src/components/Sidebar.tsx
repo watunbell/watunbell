@@ -23,8 +23,10 @@ export function Sidebar() {
           <Package className="h-5 w-5" />
         </div>
         <div className="leading-tight">
-          <p className="text-sm font-semibold text-gray-900">Inventory</p>
-          <p className="text-xs text-gray-500">Department Assets</p>
+          <p className="text-sm font-semibold text-gray-900">
+            ครุภัณฑ์จุลชีววิทยา
+          </p>
+          <p className="text-xs text-gray-500">คณะแพทยศาสตร์ มศว</p>
         </div>
       </div>
 
@@ -83,7 +85,7 @@ export function Sidebar() {
         </div>
       ) : (
         <div className="px-5 py-4 text-xs text-gray-400">
-          Real-time · Firebase
+          Real-time · Google Sheets
         </div>
       )}
     </aside>

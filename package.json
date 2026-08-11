@@ -2,7 +2,7 @@
   "name": "uni-inventory-system",
   "version": "0.1.0",
   "private": true,
-  "description": "Real-time Inventory & Equipment Management System for a university academic department",
+  "description": "Inventory & Equipment Management System for the Department of Microbiology, Faculty of Medicine, Srinakharinwirot University (SWU)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

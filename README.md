@@ -1,9 +1,12 @@
-# Department Inventory & Equipment Management System
+# ระบบครุภัณฑ์ ภาควิชาจุลชีววิทยา คณะแพทยศาสตร์ มหาวิทยาลัยศรีนครินทรวิโรฒ
 
-A near-real-time inventory and equipment management system for a university
-academic department, built with **Next.js (TypeScript)**, **Tailwind CSS**, and
-a **Google-native backend** — Google Sheets as the datastore and Google OAuth
-for sign-in. No Firebase.
+_Inventory & Equipment Management System — Department of Microbiology,
+Faculty of Medicine, Srinakharinwirot University (SWU)_
+
+A near-real-time inventory and equipment management system for the department,
+built with **Next.js (TypeScript)**, **Tailwind CSS**, and a **Google-native
+backend** — Google Sheets as the datastore and Google OAuth (restricted to
+`@g.swu.ac.th`) for sign-in. No Firebase.
 
 > This project lives on the `claude/university-inventory-system-*` branch. The
 > repository's default branch hosts an unrelated project (Flow Cytometry
