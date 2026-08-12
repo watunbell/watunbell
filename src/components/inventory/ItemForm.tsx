@@ -43,6 +43,13 @@ export function ItemForm({ item, onDone, onCancel }: ItemFormProps) {
   );
   const [description, setDescription] = useState(item?.description ?? "");
   const [notes, setNotes] = useState(item?.notes ?? "");
+  const [maintEnabled, setMaintEnabled] = useState(item?.maintEnabled ?? false);
+  const [maintIntervalMonths, setMaintIntervalMonths] = useState(
+    String(item?.maintIntervalMonths ?? 12),
+  );
+  const [maintLastDate, setMaintLastDate] = useState(
+    toDateInputValue(item?.maintLastDate),
+  );
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +94,11 @@ export function ItemForm({ item, onDone, onCancel }: ItemFormProps) {
       // Dates are stored as YYYY-MM-DD strings; null clears the value.
       expiryDate: tracksExpiry && expiryDate ? expiryDate : null,
       acquiredDate: acquiredDate ? acquiredDate : null,
+      maintEnabled,
+      maintIntervalMonths: maintEnabled
+        ? Number(maintIntervalMonths) || 12
+        : undefined,
+      maintLastDate: maintEnabled && maintLastDate ? maintLastDate : null,
     });
 
     setSaving(true);
@@ -278,6 +290,41 @@ export function ItemForm({ item, onDone, onCancel }: ItemFormProps) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
+        </div>
+
+        <div className="sm:col-span-2 rounded-lg border border-gray-200 p-4">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              checked={maintEnabled}
+              onChange={(e) => setMaintEnabled(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            ตั้งตารางบำรุงรักษา / สอบเทียบ (maintenance &amp; calibration schedule)
+          </label>
+          {maintEnabled ? (
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="maintIntervalMonths">รอบบำรุงรักษา (เดือน)</Label>
+                <Input
+                  id="maintIntervalMonths"
+                  type="number"
+                  min={1}
+                  value={maintIntervalMonths}
+                  onChange={(e) => setMaintIntervalMonths(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="maintLastDate">บำรุงรักษาล่าสุด</Label>
+                <Input
+                  id="maintLastDate"
+                  type="date"
+                  value={maintLastDate}
+                  onChange={(e) => setMaintLastDate(e.target.value)}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 

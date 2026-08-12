@@ -16,9 +16,11 @@ export type Category =
  */
 export type ItemStatus =
   | "available" // พร้อมใช้งาน
-  | "borrowed" // ถูกยืม / กำลังใช้งาน (In-Use)
-  | "maintenance" // ซ่อมบำรุง / ชำรุด (Maintenance / Broken)
-  | "retired"; // ปลดระวาง / จำหน่ายออก
+  | "borrowed" // ถูกยืม / กำลังใช้งาน (In-Use) — set automatically by the Loan flow
+  | "low" // ใกล้หมด — manual flag, mainly for consumables (reagents/chemicals)
+  | "broken" // เสีย / ชำรุด (formerly "maintenance")
+  | "disposal" // รอแทงจำหน่าย (pending write-off)
+  | "disposed"; // แทงจำหน่ายแล้ว (formerly "retired")
 
 /**
  * A single inventory record — one row in the Google Sheet.
@@ -55,6 +57,14 @@ export interface InventoryItem {
   acquiredDate?: string | null;
   /** Purchase cost in THB (for faculty asset reporting). */
   unitPrice?: number;
+
+  // --- Maintenance / calibration -------------------------------------------
+  /** Whether this item is on a recurring maintenance/calibration schedule. */
+  maintEnabled?: boolean;
+  /** Interval between maintenance visits, in months. */
+  maintIntervalMonths?: number;
+  /** Date (YYYY-MM-DD) of the last completed maintenance. */
+  maintLastDate?: string | null;
 
   // --- Bookkeeping --------------------------------------------------------
   notes?: string;

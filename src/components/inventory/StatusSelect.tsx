@@ -12,9 +12,10 @@ interface StatusSelectProps {
 }
 
 /**
- * Inline dropdown that writes the new status straight to Firestore.
- * The real-time listener reflects the change everywhere; a brief pending
- * state gives local feedback while the write is in flight.
+ * Inline dropdown that writes the new status straight to the sheet via
+ * `/api/items`. Polling + the `items:changed` event reflect the change
+ * everywhere; a brief pending state gives local feedback while the write is
+ * in flight.
  */
 export function StatusSelect({ itemId, status }: StatusSelectProps) {
   const [pending, setPending] = useState(false);

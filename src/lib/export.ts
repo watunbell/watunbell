@@ -1,5 +1,6 @@
 import { CATEGORY_MAP, STATUS_MAP } from "./constants";
 import { isExpiringSoon, isLowStock } from "./items";
+import { nextMaintDate } from "./maintenance";
 import type { InventoryItem } from "./types";
 import { toDateInputValue } from "./utils";
 
@@ -31,6 +32,9 @@ const COLUMNS: Column[] = [
   { header: "Unit Price (THB)", value: (i) => i.unitPrice ?? "" },
   { header: "Description", value: (i) => i.description ?? "" },
   { header: "Notes", value: (i) => i.notes ?? "" },
+  { header: "Maintenance Interval (months)", value: (i) => (i.maintEnabled ? i.maintIntervalMonths ?? "" : "") },
+  { header: "Last Maintenance", value: (i) => (i.maintEnabled ? toDateInputValue(i.maintLastDate) : "") },
+  { header: "Next Maintenance Due", value: (i) => (i.maintEnabled ? nextMaintDate(i) ?? "" : "") },
 ];
 
 /** Escape a single CSV cell per RFC 4180 (quote if it contains , " or newline). */

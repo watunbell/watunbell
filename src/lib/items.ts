@@ -101,8 +101,10 @@ export function isExpiringSoon(
 const EMPTY_STATUS: Record<ItemStatus, number> = {
   available: 0,
   borrowed: 0,
-  maintenance: 0,
-  retired: 0,
+  low: 0,
+  broken: 0,
+  disposal: 0,
+  disposed: 0,
 };
 
 const EMPTY_CATEGORY: Record<Category, number> = {

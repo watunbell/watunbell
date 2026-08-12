@@ -70,16 +70,30 @@ export const STATUSES: StatusMeta[] = [
     badgeClass: "bg-amber-100 text-amber-800 ring-amber-600/20",
   },
   {
-    key: "maintenance",
-    label: "Maintenance / Broken",
-    labelTh: "ซ่อมบำรุง / ชำรุด",
+    key: "low",
+    label: "Low Stock",
+    labelTh: "ใกล้หมด",
+    color: "#d97706",
+    badgeClass: "bg-amber-100 text-amber-800 ring-amber-600/20",
+  },
+  {
+    key: "broken",
+    label: "Broken",
+    labelTh: "เสีย / ชำรุด",
     color: "#ef4444",
     badgeClass: "bg-red-100 text-red-800 ring-red-600/20",
   },
   {
-    key: "retired",
-    label: "Retired",
-    labelTh: "ปลดระวาง",
+    key: "disposal",
+    label: "Pending Disposal",
+    labelTh: "รอแทงจำหน่าย",
+    color: "#d97706",
+    badgeClass: "bg-amber-100 text-amber-800 ring-amber-600/20",
+  },
+  {
+    key: "disposed",
+    label: "Disposed",
+    labelTh: "แทงจำหน่ายแล้ว",
     color: "#6b7280",
     badgeClass: "bg-gray-100 text-gray-700 ring-gray-500/20",
   },
@@ -91,6 +105,9 @@ export const STATUS_MAP: Record<ItemStatus, StatusMeta> = Object.fromEntries(
 
 /** Number of days before expiry at which a reagent is flagged "expiring soon". */
 export const EXPIRING_SOON_DAYS = 30;
+
+/** Default lead time (days) before a maintenance due-date to start warning. */
+export const DEFAULT_MAINT_WARN_DAYS = 30;
 
 /**
  * Only Google Workspace accounts on this domain may use the system.

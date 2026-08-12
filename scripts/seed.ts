@@ -49,7 +49,11 @@ const COLUMNS = [
   "notes",
   "createdAt",
   "updatedAt",
+  "maintEnabled",
+  "maintIntervalMonths",
+  "maintLastDate",
 ] as const;
+const ITEMS_LAST_COL = "T"; // 20 columns → A..T
 
 if (!SPREADSHEET_ID || !process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL) {
   console.error(
@@ -70,14 +74,18 @@ const dateFromNow = (n: number) =>
 
 type Sample = Record<string, string | number>;
 
+const dateAgo = (n: number) => dateFromNow(-n);
+
 const SAMPLE: Sample[] = [
-  { name: "Compound Microscope (Olympus CX23)", assetCode: "SCI-LAB-001", category: "lab_equipment", quantity: 12, unit: "unit", minQuantity: 3, status: "available", location: "Lab 2-201", custodian: "อ.สมชาย", unitPrice: 45000 },
-  { name: "Analytical Balance (0.1mg)", assetCode: "SCI-LAB-014", category: "lab_equipment", quantity: 2, unit: "unit", minQuantity: 2, status: "maintenance", location: "Lab 2-105" },
-  { name: "Ethanol Absolute 99.9%", assetCode: "SCI-CHEM-023", category: "reagents_chemicals", quantity: 4, unit: "bottle", minQuantity: 6, status: "available", location: "Chem store A", expiryDate: dateFromNow(18) },
+  { name: "Compound Microscope (Olympus CX23)", assetCode: "SCI-LAB-001", category: "lab_equipment", quantity: 12, unit: "unit", minQuantity: 3, status: "available", location: "Lab 2-201", custodian: "อ.สมชาย", unitPrice: 45000, maintEnabled: "true", maintIntervalMonths: 12, maintLastDate: dateAgo(335) },
+  { name: "Analytical Balance (0.1mg)", assetCode: "SCI-LAB-014", category: "lab_equipment", quantity: 2, unit: "unit", minQuantity: 2, status: "broken", location: "Lab 2-105", notes: "เสีย เพราะเซนเซอร์ชั่งน้ำหนักคลาดเคลื่อน", maintEnabled: "true", maintIntervalMonths: 6, maintLastDate: dateAgo(200) },
+  { name: "Ethanol Absolute 99.9%", assetCode: "SCI-CHEM-023", category: "reagents_chemicals", quantity: 4, unit: "bottle", minQuantity: 6, status: "low", location: "Chem store A", expiryDate: dateFromNow(18) },
   { name: "Sodium Hydroxide (NaOH) pellets", assetCode: "SCI-CHEM-041", category: "reagents_chemicals", quantity: 9, unit: "bottle", minQuantity: 4, status: "available", location: "Chem store B", expiryDate: dateFromNow(400) },
   { name: "Dell OptiPlex Desktop", assetCode: "IT-PC-077", category: "it_computing", quantity: 1, unit: "unit", minQuantity: 1, status: "borrowed", location: "Staff room", custodian: "IT support", unitPrice: 22000 },
   { name: "Epson Projector EB-X06", assetCode: "IT-AV-012", category: "it_computing", quantity: 3, unit: "unit", minQuantity: 1, status: "available", location: "AV cabinet" },
-  { name: "A4 Copy Paper (80gsm)", category: "office_supplies", quantity: 15, unit: "ream", minQuantity: 20, status: "available", location: "Office storeroom" },
+  { name: "HP LaserJet Printer", assetCode: "IT-PR-030", category: "it_computing", quantity: 1, unit: "unit", minQuantity: 1, status: "disposal", location: "Office", unitPrice: 4200, notes: "รอแทงจำหน่าย เพราะหมดอายุการใช้งานเกิน 8 ปี" },
+  { name: "Autoclave (old model)", assetCode: "SCI-LAB-005", category: "lab_equipment", quantity: 1, unit: "unit", minQuantity: 1, status: "disposed", location: "Storage", unitPrice: 85000, notes: "แทงจำหน่ายแล้วตามมติคณะกรรมการพัสดุ" },
+  { name: "A4 Copy Paper (80gsm)", category: "office_supplies", quantity: 15, unit: "ream", minQuantity: 20, status: "low", location: "Office storeroom" },
   { name: "Whiteboard Markers (assorted)", category: "office_supplies", quantity: 40, unit: "pcs", minQuantity: 15, status: "available", location: "Office storeroom" },
 ];
 
@@ -112,12 +120,12 @@ async function main() {
   // Ensure the Items header row exists.
   const header = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${TAB}!A1:Q1`,
+    range: `${TAB}!A1:${ITEMS_LAST_COL}1`,
   });
   if (!header.data.values || header.data.values.length === 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${TAB}!A1:Q1`,
+      range: `${TAB}!A1:${ITEMS_LAST_COL}1`,
       valueInputOption: "RAW",
       requestBody: { values: [[...COLUMNS]] },
     });
@@ -127,7 +135,7 @@ async function main() {
   const built = SAMPLE.map((s) => ({ sample: s, ...buildItemRow(s) }));
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${TAB}!A:Q`,
+    range: `${TAB}!A:${ITEMS_LAST_COL}`,
     valueInputOption: "RAW",
     requestBody: { values: built.map((b) => b.row) },
   });

@@ -39,9 +39,15 @@ const COLUMNS = [
   "notes",
   "createdAt",
   "updatedAt",
+  "maintEnabled",
+  "maintIntervalMonths",
+  "maintLastDate",
 ] as const;
 
 type Column = (typeof COLUMNS)[number];
+
+/** Last column letter for the Items tab (A + COLUMNS.length - 1 columns). */
+const ITEMS_LAST_COL = "T"; // 20 columns → A..T
 
 /** True when the service-account + spreadsheet env is present. */
 export function isSheetsConfigured(): boolean {
@@ -83,6 +89,9 @@ function toRow(item: InventoryItem): string[] {
     notes: item.notes ?? "",
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    maintEnabled: item.maintEnabled ? "true" : "",
+    maintIntervalMonths: item.maintIntervalMonths ?? "",
+    maintLastDate: item.maintLastDate ?? "",
   };
   return COLUMNS.map((c) => String(map[c] ?? ""));
 }
@@ -115,6 +124,9 @@ function fromRow(row: string[]): InventoryItem {
     notes: str("notes"),
     createdAt: get("createdAt"),
     updatedAt: get("updatedAt"),
+    maintEnabled: get("maintEnabled") === "true",
+    maintIntervalMonths: num("maintIntervalMonths"),
+    maintLastDate: str("maintLastDate") ?? null,
   };
 }
 
@@ -125,7 +137,7 @@ export async function listItems(): Promise<InventoryItem[]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${TAB}!A2:Q`,
+    range: `${TAB}!A2:${ITEMS_LAST_COL}`,
   });
   const rows = res.data.values ?? [];
   return rows
@@ -146,7 +158,7 @@ export async function createItem(
   };
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${TAB}!A:Q`,
+    range: `${TAB}!A:${ITEMS_LAST_COL}`,
     valueInputOption: "RAW",
     requestBody: { values: [toRow(item)] },
   });
@@ -175,7 +187,7 @@ export async function updateItem(
 
   const current = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${TAB}!A${rowNumber}:Q${rowNumber}`,
+    range: `${TAB}!A${rowNumber}:${ITEMS_LAST_COL}${rowNumber}`,
   });
   const existing = fromRow((current.data.values?.[0] ?? []) as string[]);
   const merged: InventoryItem = {
@@ -187,7 +199,7 @@ export async function updateItem(
   };
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${TAB}!A${rowNumber}:Q${rowNumber}`,
+    range: `${TAB}!A${rowNumber}:${ITEMS_LAST_COL}${rowNumber}`,
     valueInputOption: "RAW",
     requestBody: { values: [toRow(merged)] },
   });
@@ -234,12 +246,12 @@ export async function ensureHeader(): Promise<void> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${TAB}!A1:Q1`,
+    range: `${TAB}!A1:${ITEMS_LAST_COL}1`,
   });
   if (!res.data.values || res.data.values.length === 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${TAB}!A1:Q1`,
+      range: `${TAB}!A1:${ITEMS_LAST_COL}1`,
       valueInputOption: "RAW",
       requestBody: { values: [[...COLUMNS]] },
     });

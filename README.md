@@ -18,22 +18,34 @@ backend** — Google Sheets as the datastore and Google OAuth (restricted to
 - **Authentication** — Google sign-in (via NextAuth) restricted to the
   department's Google Workspace domain (`@g.swu.ac.th`), enforced server-side in
   the NextAuth `signIn` callback and on every API route.
-- **Near-real-time dashboard** — total inventory, low-stock alerts, and
-  equipment status distribution, with a bar chart (category breakdown) and donut
-  chart (status summary). The client polls every ~4s and refreshes instantly
+- **Near-real-time dashboard** — total inventory, low-stock/broken/pending-disposal/
+  maintenance-due stat cards, a category bar chart, a status donut chart, a
+  stock-levels chart, and a maintenance-due chart. Chart visibility, color
+  palette, and the maintenance warning lead time are user-configurable from a
+  dashboard settings panel. The client polls every ~4s and refreshes instantly
   after edits, so all clients stay in sync without a manual refresh.
-- **Inventory CRUD** — create, read, update, delete assets, with live search and
-  category filtering.
+- **Inventory CRUD** — create, read, update, delete assets, with live search,
+  category filtering, status filtering, and a click-to-view item detail popup.
 - **Categorization** — Lab Equipment, Reagents/Chemicals (with expiry tracking),
   IT/Computing Devices, General Office Supplies.
-- **Status tracking** — instant status updates for durable goods (ครุภัณฑ์):
-  Available, In-Use/Borrowed, Maintenance/Broken, Retired.
+- **Status tracking** — instant status updates for ครุภัณฑ์: Available,
+  In-Use/Borrowed, Low Stock (ใกล้หมด), Broken (เสีย/ชำรุด), Pending Disposal
+  (รอแทงจำหน่าย), Disposed (แทงจำหน่ายแล้ว).
+- **Maintenance / calibration scheduling** — an optional recurring schedule per
+  item (interval in months + last-maintenance date); the next-due date is
+  computed automatically, with due/overdue indicators on the inventory table,
+  dashboard, and item detail popup, plus a one-click "mark maintained today"
+  action.
 - **Loan / borrow audit trail** — record borrows (borrower, quantity, due date)
   and returns from the UI; each action stamps *who* recorded it (the signed-in
   staff email) and keeps the item's status in sync. A Loan History page shows
   the full trail with active/returned filters and overdue highlighting.
+- **CSV import wizard** — upload a CSV (or download a starter template),
+  auto-map columns to fields, preview + validate every row, then import in bulk.
+- **Report page** — filter by category/status/location/low-stock, group by
+  category or location, sort any column, and export the current view to CSV.
 - **Reporting export** — one-click CSV export (UTF-8 BOM, respects the active
-  search/category filters) for faculty reporting.
+  search/category/status filters) for faculty reporting.
 
 ## Tech stack
 
@@ -105,9 +117,10 @@ src/
   app/
     layout.tsx              # Root: Providers (NextAuth) + AppShell
     page.tsx                # Redirects to /dashboard
-    dashboard/page.tsx      # Stat cards + bar/donut charts
-    inventory/page.tsx      # CRUD table, search/filter, borrow, CSV export
+    dashboard/page.tsx      # Stat cards + charts + settings panel
+    inventory/page.tsx      # CRUD table, search/filter, borrow, import, CSV export
     loans/page.tsx          # Borrow/return audit trail
+    report/page.tsx         # Filter/group/sort report + CSV export
     api/
       auth/[...nextauth]/   # NextAuth route handler
       items/                # GET/POST items
@@ -117,9 +130,12 @@ src/
   components/
     Providers.tsx           # SessionProvider wrapper
     AppShell.tsx            # Auth gate + sidebar/main chrome
+    DashboardSettingsPanel.tsx  # Chart visibility / palette / maint. lead time
     auth/                   # SignInScreen
-    inventory/              # ItemForm, StatusSelect, DeleteConfirm, BorrowForm
-    charts/                 # CategoryBarChart, StatusDonutChart, ChartCard
+    inventory/              # ItemForm, StatusSelect, DeleteConfirm, BorrowForm,
+                             # ItemDetail (detail popup), ImportWizard
+    charts/                 # CategoryBarChart, StatusDonutChart, StockLevelsChart,
+                             # MaintenanceChart, ChartCard
     ui/                     # Modal, form fields
   context/AuthContext.tsx   # useAuth adapter over NextAuth session
   hooks/useItems.ts         # Polling + change-event data hook
@@ -130,6 +146,9 @@ src/
     googleSheets.ts         # Sheets read/write incl. loans (server-only)
     items.ts                # Client CRUD (fetch) + stats aggregation
     loans.ts                # Client borrow/return
+    maintenance.ts          # Next-due-date / overdue-soon helpers
+    dashboardSettings.ts    # localStorage-backed dashboard preferences
+    importCsv.ts            # CSV parsing + column/category/status auto-mapping
     types.ts                # Domain model
     constants.ts            # Categories, statuses, ALLOWED_DOMAIN
     export.ts               # CSV report builder + download

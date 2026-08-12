@@ -11,27 +11,30 @@ code that reads/writes the sheet.
 - **Each subsequent row is one item.** The `id` (column A) is a UUID assigned on
   create; rows with a blank `id` are ignored on read.
 
-## Columns (A–Q)
+## Columns (A–T)
 
-| Col | Key            | Type / format        | Notes                                                        |
-| --- | -------------- | -------------------- | ----------------------------------------------------------- |
-| A   | `id`           | UUID string          | Assigned server-side on create.                             |
-| B   | `name`         | string (required)    | Item name.                                                  |
-| C   | `assetCode`    | string               | รหัสครุภัณฑ์, e.g. `SCI-CHEM-001`.                           |
-| D   | `category`     | enum                 | `lab_equipment` \| `reagents_chemicals` \| `it_computing` \| `office_supplies` |
-| E   | `description`  | string               |                                                             |
-| F   | `quantity`     | number               | On-hand count.                                              |
-| G   | `unit`         | string               | e.g. `unit`, `box`, `bottle`, `ml`.                         |
-| H   | `minQuantity`  | number               | Low-stock threshold (`quantity <= minQuantity`).            |
-| I   | `status`       | enum                 | `available` \| `borrowed` \| `maintenance` \| `retired`     |
-| J   | `location`     | string               | Room / cabinet / shelf.                                     |
-| K   | `custodian`    | string               | ผู้ดูแล.                                                     |
-| L   | `expiryDate`   | `YYYY-MM-DD`         | Meaningful for `reagents_chemicals`.                        |
-| M   | `acquiredDate` | `YYYY-MM-DD`         | Purchase / acquisition date.                                |
-| N   | `unitPrice`    | number               | THB, for asset reporting.                                   |
-| O   | `notes`        | string               |                                                             |
-| P   | `createdAt`    | ISO 8601 datetime    | Set on create.                                              |
-| Q   | `updatedAt`    | ISO 8601 datetime    | Set on every write.                                         |
+| Col | Key                    | Type / format        | Notes                                                        |
+| --- | ---------------------- | --------------------- | ----------------------------------------------------------- |
+| A   | `id`                   | UUID string          | Assigned server-side on create.                             |
+| B   | `name`                 | string (required)    | Item name.                                                  |
+| C   | `assetCode`            | string               | รหัสครุภัณฑ์, e.g. `SCI-CHEM-001`.                           |
+| D   | `category`             | enum                 | `lab_equipment` \| `reagents_chemicals` \| `it_computing` \| `office_supplies` |
+| E   | `description`          | string               |                                                             |
+| F   | `quantity`             | number               | On-hand count.                                              |
+| G   | `unit`                 | string               | e.g. `unit`, `box`, `bottle`, `ml`.                         |
+| H   | `minQuantity`          | number               | Low-stock / reorder threshold (`quantity <= minQuantity`).  |
+| I   | `status`               | enum                 | `available` \| `borrowed` \| `low` \| `broken` \| `disposal` \| `disposed` |
+| J   | `location`             | string               | Room / cabinet / shelf.                                     |
+| K   | `custodian`            | string               | ผู้ดูแล.                                                     |
+| L   | `expiryDate`           | `YYYY-MM-DD`         | Meaningful for `reagents_chemicals`.                        |
+| M   | `acquiredDate`         | `YYYY-MM-DD`         | Purchase / acquisition date.                                |
+| N   | `unitPrice`            | number               | THB, for asset reporting.                                   |
+| O   | `notes`                | string               |                                                             |
+| P   | `createdAt`            | ISO 8601 datetime    | Set on create.                                              |
+| Q   | `updatedAt`            | ISO 8601 datetime    | Set on every write.                                         |
+| R   | `maintEnabled`         | `"true"` \| `""`     | Whether this item is on a maintenance/calibration schedule. |
+| S   | `maintIntervalMonths`  | number                | Months between maintenance visits.                          |
+| T   | `maintLastDate`        | `YYYY-MM-DD`          | Date of the last completed maintenance.                     |
 
 ## Loans tab (`Loans`)
 
@@ -75,7 +78,17 @@ cannot be spoofed by the client.
 
 - **Low stock**: `quantity <= minQuantity`.
 - **Expiring soon**: `expiryDate` within `EXPIRING_SOON_DAYS` (default 30).
+- **Next maintenance date**: `maintLastDate + maintIntervalMonths`, computed by
+  `nextMaintDate()` in `src/lib/maintenance.ts`. Due/overdue flags use the
+  dashboard's configurable warning lead time (default `DEFAULT_MAINT_WARN_DAYS`),
+  stored client-side (see "Dashboard settings" below) — never in the sheet.
 - **Dashboard aggregates**: `computeStats()` in `src/lib/items.ts`.
+
+## Dashboard settings (client-side only, not in the sheet)
+
+Chart visibility, the color palette, and the maintenance warning lead time are
+per-browser UI preferences, not shared data — they're saved to
+`localStorage` (see `src/lib/dashboardSettings.ts`) rather than the sheet.
 
 ## One-time setup
 

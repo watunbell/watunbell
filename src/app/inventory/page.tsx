@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, HandHelping, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Download,
+  HandHelping,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+  Wrench,
+} from "lucide-react";
 import { useItems } from "@/hooks/useItems";
 import { ConfigNotice } from "@/components/ConfigNotice";
 import { Modal } from "@/components/ui/Modal";
@@ -9,11 +18,19 @@ import { ItemForm } from "@/components/inventory/ItemForm";
 import { StatusSelect } from "@/components/inventory/StatusSelect";
 import { DeleteConfirm } from "@/components/inventory/DeleteConfirm";
 import { BorrowForm } from "@/components/inventory/BorrowForm";
-import { CATEGORIES, CATEGORY_MAP } from "@/lib/constants";
+import { ItemDetail } from "@/components/inventory/ItemDetail";
+import { ImportWizard } from "@/components/inventory/ImportWizard";
+import {
+  CATEGORIES,
+  CATEGORY_MAP,
+  DEFAULT_MAINT_WARN_DAYS,
+  STATUSES,
+} from "@/lib/constants";
 import { isExpiringSoon, isLowStock } from "@/lib/items";
+import { maintStatusOf } from "@/lib/maintenance";
 import { downloadItemsCsv } from "@/lib/export";
 import { cn, formatDate } from "@/lib/utils";
-import type { Category, InventoryItem } from "@/lib/types";
+import type { Category, InventoryItem, ItemStatus } from "@/lib/types";
 
 export default function InventoryPage() {
   const { items, loading, error } = useItems();
@@ -22,14 +39,20 @@ export default function InventoryPage() {
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [deleting, setDeleting] = useState<InventoryItem | null>(null);
   const [borrowing, setBorrowing] = useState<InventoryItem | null>(null);
+  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Category | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<ItemStatus | "all">("all");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((item) => {
       if (categoryFilter !== "all" && item.category !== categoryFilter) {
+        return false;
+      }
+      if (statusFilter !== "all" && item.status !== statusFilter) {
         return false;
       }
       if (!q) return true;
@@ -40,7 +63,9 @@ export default function InventoryPage() {
         item.custodian?.toLowerCase().includes(q)
       );
     });
-  }, [items, search, categoryFilter]);
+  }, [items, search, categoryFilter, statusFilter]);
+
+  const viewing = viewingId ? (items.find((i) => i.id === viewingId) ?? null) : null;
 
   function openCreate() {
     setEditing(null);
@@ -84,6 +109,14 @@ export default function InventoryPage() {
           </button>
           <button
             type="button"
+            onClick={() => setImportOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+          >
+            <Upload className="h-4 w-4" />
+            Import
+          </button>
+          <button
+            type="button"
             onClick={openCreate}
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -115,6 +148,18 @@ export default function InventoryPage() {
           {CATEGORIES.map((c) => (
             <option key={c.key} value={c.key}>
               {c.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as ItemStatus | "all")}
+          className="rounded-lg border border-gray-300 bg-white py-2 pl-3 pr-8 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+        >
+          <option value="all">All statuses</option>
+          {STATUSES.map((s) => (
+            <option key={s.key} value={s.key}>
+              {s.label}
             </option>
           ))}
         </select>
@@ -152,10 +197,32 @@ export default function InventoryPage() {
             ) : (
               filtered.map((item) => {
                 const expiring = isExpiringSoon(item);
+                const maintTone = maintStatusOf(item, DEFAULT_MAINT_WARN_DAYS);
                 return (
-                  <tr key={item.id} className="hover:bg-gray-50">
+                  <tr
+                    key={item.id}
+                    onClick={() => setViewingId(item.id)}
+                    className="cursor-pointer hover:bg-gray-50"
+                  >
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{item.name}</div>
+                      <div className="flex items-center gap-1.5 font-medium text-gray-900">
+                        {item.name}
+                        {maintTone === "soon" || maintTone === "overdue" ? (
+                          <Wrench
+                            className={cn(
+                              "h-3.5 w-3.5 flex-shrink-0",
+                              maintTone === "overdue"
+                                ? "text-red-500"
+                                : "text-amber-500",
+                            )}
+                            aria-label={
+                              maintTone === "overdue"
+                                ? "Maintenance overdue"
+                                : "Maintenance due soon"
+                            }
+                          />
+                        ) : null}
+                      </div>
                       {item.assetCode ? (
                         <div className="text-xs text-gray-400">
                           {item.assetCode}
@@ -175,7 +242,7 @@ export default function InventoryPage() {
                         {item.quantity} {item.unit}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <StatusSelect itemId={item.id} status={item.status} />
                     </td>
                     <td className="px-4 py-3 text-gray-600">
@@ -192,7 +259,7 @@ export default function InventoryPage() {
                         {formatDate(item.expiryDate)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         {item.status === "available" ? (
                           <button
@@ -243,6 +310,29 @@ export default function InventoryPage() {
           onDone={closeForm}
           onCancel={closeForm}
         />
+      </Modal>
+
+      {/* Import wizard */}
+      <Modal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="นำเข้าจาก Excel / CSV"
+        size="max-w-3xl"
+      >
+        <ImportWizard
+          onDone={() => {}}
+          onCancel={() => setImportOpen(false)}
+        />
+      </Modal>
+
+      {/* Item detail */}
+      <Modal
+        open={Boolean(viewing)}
+        onClose={() => setViewingId(null)}
+        title="รายละเอียดครุภัณฑ์"
+        size="max-w-lg"
+      >
+        {viewing ? <ItemDetail item={viewing} /> : null}
       </Modal>
 
       {/* Delete confirmation */}

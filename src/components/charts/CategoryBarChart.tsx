@@ -14,15 +14,17 @@ import type { DashboardStats } from "@/lib/types";
 
 interface Props {
   byCategory: DashboardStats["byCategory"];
+  /** Optional palette override (cycled by index); falls back to each category's own color. */
+  colors?: string[];
 }
 
 /** Bar chart: number of distinct items per asset category. */
-export function CategoryBarChart({ byCategory }: Props) {
-  const data = CATEGORIES.map((c) => ({
+export function CategoryBarChart({ byCategory, colors }: Props) {
+  const data = CATEGORIES.map((c, i) => ({
     key: c.key,
     name: c.label,
     value: byCategory[c.key] ?? 0,
-    color: c.color,
+    color: colors && colors.length ? colors[i % colors.length] : c.color,
   }));
 
   const total = data.reduce((sum, d) => sum + d.value, 0);
